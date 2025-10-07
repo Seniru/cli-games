@@ -1,43 +1,77 @@
 #!/bin/env bash
 
-#this script will automatically install the node dependences and the python ones, it's just really simple
-text_installed="dependencies installed correctly \n\n"
-text_not_installed="dependencies not installed, please refer the problem log above"
+# this script will automatically install the javascript dependences and the python ones for each game, it's just really simple
 
+red="\033[1;31m"
+yellow="\033[1;33m"
+green="\033[1;32m"
+reset="\e[0m"
 
-printf "Installing Hangman dependencies... \n"
-pip install -r requirements.txt
+log() {
+	printf "${yellow}[INFO] %s${reset}\n" "$@"
+}
 
+success() {
+	printf "${green}[SUCCESS] %s${reset}\n\n" "$@"
+}
 
-printf "Installing MazeEscape dependencies... \n"
-cd $(dirname $0)/MazeEscape && npm install .
-
-if [[ -d node_modules ]]; then
-	printf "MazeEscape $text_installed"
-else
-	printf "MazeEscape $text_not_installed"
+die() {
+	printf "\n${red}[FATAL] %s${reset}\n" "$@"
 	exit 1
+}
+
+# check if we are on arch (used for python)
+IS_ARCH_LINUX=false
+if [[ -f /etc/arch-release ]] || 
+   { [[ -f /etc/os-release ]] && 
+     { grep -qP '^ID=(arch|"arch")' /etc/os-release || 
+       grep -qP '^ID_LIKE=.*(arch|"arch").*' /etc/os-release; }; }; then
+    IS_ARCH_LINUX=true
 fi
 
-printf "Installing Snake dependencies... \n"
-cd ../Snake && npm install .
+main() {
+	if command -v yarn &>/dev/null; then
+		jsPm="yarn add"
+	elif command -v npm &>/dev/null; then
+		jsPm="npm install"
+	else
+		die "Neither yarn nor npm is installed. Please install one of them."
+	fi
 
-if [[ -d node_modules ]]; then
-	printf "Snake $text_installed"
-else
-	printf "Snake $text_not_installed"
-	exit 1
-fi
+	scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	for gameDir in "${scriptDir}"/*/; do
+		# skip hidden directories
+		[[ "$(basename "$gameDir")" = .* || "$(basename "$gameDir")" = _* ]] && continue
 
-printf "Installing TextAdventures dependencies... \n"
-cd ../TextAdventures && npm install .
+		cd $gameDir
+		game="$(basename "$gameDir")"
+		if [[ -f requirements.txt ]]; then
+			if $IS_ARCH_LINUX; then
+				python3 -m venv $gameDir/venv
+				"$gameDir"/venv/bin/pip install -r requirements.txt
+			else
+				log "Installing python dependencies for ${game}..."
+				pip install -r requirements.txt
+			fi
 
-if [[ -d node_modules ]]; then
-	printf "TextAdventures $text_installed"
-else
-	printf "TextAdventures $text_not_installed"
-	exit 1
-fi
+			if [ $? -eq 0 ]; then
+				success "${game} python dependencies installed correctly"
+			else
+				die "${game} python dependencies failed to install, please refer the problem log above"
+			fi
+		fi
+		if [[ -f package.json ]]; then
+			log "Installing javascript dependencies for ${game}..."
+			$jsPm
 
-printf "Dependences installed succesfully\n"
-exit 0
+			if [ $? -eq 0 ]; then
+				success "${game} javascript dependencies installed correctly"
+			else
+				die "${game} javascript dependencies failed to install, please refer the problem log above"
+			fi
+		fi
+	done
+	success "Dependencies installed succesfully, have fun :)"
+}
+
+main "$@"

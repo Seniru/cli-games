@@ -1,47 +1,57 @@
 const readline = require('readline');
 const esc = require('ansi-escapes');
+const { clear } = require('console');
 
 // initializing the variables
 let map, snake, snakeHead, foodPos, score, interval;
+
 
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 
 // handling keypress events
-process.stdin.on('keypress', (str, key) => {
-    if (key.name == 'z' && key.ctrl) {
-        console.log(esc.cursorShow);
-        process.exit(0);
-    } else if (key.name == "up") {
-        if (!snakeHead.movingDown) {
-            snakeHead.movingForward = true;
-            snakeHead.movingDown = false;
-            snakeHead.movingLeft = false;
-            snakeHead.movingRight = false;
+function setupKeyListeners() {
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+
+    process.stdin.removeAllListeners('keypress');
+
+    process.stdin.on('keypress', (str, key) => {
+        if (key.name == 'z' && key.ctrl) {
+            console.log(esc.cursorShow);
+            process.exit(0);
+        } else if (key.name == "up") {
+            if (!snakeHead.movingDown) {
+                snakeHead.movingForward = true;
+                snakeHead.movingDown = false;
+                snakeHead.movingLeft = false;
+                snakeHead.movingRight = false;
+            }
+        } else if (key.name == "down") {
+            if (!snakeHead.movingForward) {
+                snakeHead.movingForward = false;
+                snakeHead.movingDown = true;
+                snakeHead.movingLeft = false;
+                snakeHead.movingRight = false;
+            }
+        } else if (key.name == "left") {
+            if (!snakeHead.movingRight) {
+                snakeHead.movingForward = false;
+                snakeHead.movingDown = false;
+                snakeHead.movingLeft = true;
+                snakeHead.movingRight = false;
+            }
+        } else if (key.name == "right") {
+            if (!snakeHead.movingLeft) {
+                snakeHead.movingForward = false;
+                snakeHead.movingDown = false;
+                snakeHead.movingLeft = false;
+                snakeHead.movingRight = true;
+            }
         }
-    } else if (key.name == "down") {
-        if (!snakeHead.movingForward) {
-            snakeHead.movingForward = false;
-            snakeHead.movingDown = true;
-            snakeHead.movingLeft = false;
-            snakeHead.movingRight = false;
-        }
-    } else if (key.name == "left") {
-        if (!snakeHead.movingRight) {
-            snakeHead.movingForward = false;
-            snakeHead.movingDown = false;
-            snakeHead.movingLeft = true;
-            snakeHead.movingRight = false;
-        }
-    } else if (key.name == "right") {
-        if (!snakeHead.movingLeft) {
-            snakeHead.movingForward = false;
-            snakeHead.movingDown = false;
-            snakeHead.movingLeft = false;
-            snakeHead.movingRight = true;
-        }
-    }
-});
+    });
+}
+
 
 
 function newGame() {
@@ -137,17 +147,28 @@ function loop() {
     // wall hit detetion
     if (snakeHead.x < 0) {
         gameOver("You hit the wall!");
+        clearInterval(interval);
+        return;
     } else if (snakeHead.x >= map[0].length) {
+        clearInterval(interval);
         gameOver("You hit the wall!");
+        return;
     } else if (snakeHead.y < 0) {
+        clearInterval(interval);
         gameOver("You hit the wall!");
+        return;
     } else if (snakeHead.y >= 15) {
+        clearInterval(interval);
         gameOver("You hit the wall!");
+        return;
     }
 
-    for (let segments of snake) {
-        map[segments[1]][segments[0]] = 1;
+    for (let [x, y] of snake) {
+        if (y >= 0 && y < map.length && x >= 0 && x < map[0].length) {
+            map[y][x] = 1;
+        }
     }
+    
 
     if (isEatingFood()) {
         snake.push([-1, -1]);
@@ -161,39 +182,64 @@ function loop() {
     drawMap();
 
     if (isEatingSelf()) {
+        clearInterval(interval);
         gameOver("You ate yourself");
-        process.exit(0);
+        return;
     }
 
-    // increasing the speed of the snake if the player has passed the level (at a higher score)
-    if (score >= 80) {
-        clearInterval(interval);
-        interval = setInterval(loop, 100);
-    } else if (score >= 60) {
-        clearInterval(interval);
-        interval = setInterval(loop, 150);
-    } else if (score >= 50) {
-        clearInterval(interval);
-        interval = setInterval(loop, 200);
-    } else if (score >= 30) {
-        clearInterval(interval);
-        interval = setInterval(loop, 300);
-    } else if (score >= 10) {
-        clearInterval(interval);
-        interval = setInterval(loop, 400);
+    // variable for the speed of the game
+    let maxSpeed = 500;
+    let minSpeed = 80;
+    let speedFactor = 10;
+
+    // calculate the new speed based on the score
+    let newInterval = maxSpeed - score * speedFactor;
+
+    // ensure the new interval is not less than the minimum speed
+    if (newInterval < minSpeed) {
+        newInterval = minSpeed;
     }
-}
+
+    // clear the previous interval and set a new one
+    clearInterval(interval);
+    interval = setInterval(loop, newInterval);
+
+};
 
 function main() {
+    clearInterval(interval);
     newGame();
     drawMap();
+    setupKeyListeners();
     interval = setInterval(loop, 800);
 }
 
 function gameOver(msg) {
+    clearInterval(interval);
     print(clr("Game over! " + msg, "red"), false, false);
-    process.exit(0);
+    print("\nYour score: " + score, false, false);
+    print("\nPress r to restart", false, false);
+    print("\nPress q to quit", false, false);
+
+    process.stdin.removeAllListeners('keypress'); 
+    process.stdin.setRawMode(true); 
+
+    function handleRestartKeypress(str, key) {
+        if (key.name === 'r') {
+            print(clr("Restarting game...", "green"), false, false);
+            process.stdin.removeListener('keypress', handleRestartKeypress);
+            main();
+        } else if (key.name === 'q') {
+            console.log("\nQuitting game.");
+            console.log(esc.cursorShow);
+            process.exit();
+        }
+    }
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.on('keypress', handleRestartKeypress);
 }
+
 
 function print(str, hide = true, clear = true) {
     if (clear) {

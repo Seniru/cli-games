@@ -1,0 +1,14 @@
+{
+  "name": "codle",
+  "version": "1.0.0",
+  "description": "Codle CLI",
+  "main": "index.js",
+  "scripts": {
+    "play": "node index.js"
+  },
+  "keywords": [
+    "game"
+  ],
+  "author": "AttAditya",
+  "license": "ISC"
+}

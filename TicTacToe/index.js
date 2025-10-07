@@ -8,6 +8,8 @@ let board = [
     [' ', ' ', ' '],
 ]
 let gameInit = false
+let isComputerGame = false
+let computerSymbol = 'O'
 
 let input = process.stdin
 
@@ -84,6 +86,79 @@ function clr(text, color) {
     if (code) return "\x1b[" + code + "m" + text + "\x1b[0m"
 }
 
+function minimax(board, depth, isMaximizing) {
+    // Check terminal states
+    if (isWinner(2)) return -10 + depth  // Computer wins
+    if (isWinner(1)) return 10 - depth   // Player wins
+    if (isStuck()) return 0              // Draw
+
+    if (isMaximizing) {
+        let bestScore = -Infinity
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[i][j] === ' ') {
+                    board[i][j] = 'X'
+                    let score = minimax(board, depth + 1, false)
+                    board[i][j] = ' '
+                    bestScore = Math.max(score, bestScore)
+                }
+            }
+        }
+        return bestScore
+    } else {
+        let bestScore = Infinity
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[i][j] === ' ') {
+                    board[i][j] = 'O'
+                    let score = minimax(board, depth + 1, true)
+                    board[i][j] = ' '
+                    bestScore = Math.min(score, bestScore)
+                }
+            }
+        }
+        return bestScore
+    }
+}
+
+function findBestMove() {
+    let bestScore = Infinity // Infinity since computer is minimizing
+    let move = { row: -1, col: -1 }
+
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            if (board[i][j] === ' ') {
+                board[i][j] = 'O'  // Computer plays 'O'
+                let score = minimax(board, 0, true)  // true since next move is player's
+                board[i][j] = ' '
+                if (score < bestScore) {  // Changed to < since we're minimizing
+                    bestScore = score
+                    move.row = i
+                    move.col = j
+                }
+            }
+        }
+    }
+    return move
+}
+
+function makeComputerMove() {
+    const move = findBestMove()
+    board[move.row][move.col] = computerSymbol
+    printBoard()
+    
+    if (isWinner(2)) {
+        print(clr(`Computer wins!\n`, 'green'))
+        process.exit()
+    }
+    if (isStuck()) {
+        print(clr(`Nobody wins\n`, 'yellow'))
+        process.exit()
+    }
+    
+    player = 1
+    prompt()
+}
 
 /**LISTENERS**/
 
@@ -91,10 +166,14 @@ input.on('data', data => {
     if (!gameInit) {
         if (!p1) {
             p1 = data.toString().replace(/\n/g, '')
-            print("Please enter Player 2 name: ")
+            print("Please enter Player 2 name (or 'computer' to play against AI): ")
         }
         else if (!p2) {
             p2 = data.toString().replace(/\n/g, '')
+            if (p2.toLowerCase() === 'computer') {
+                isComputerGame = true
+                p2 = 'Computer'
+            }
             gameInit = true
             printBoard()
             prompt()
@@ -119,7 +198,13 @@ input.on('data', data => {
                 }
                 player = player == 1 ? 2 : 1
                 printBoard()
-                prompt()
+                
+                if (isComputerGame && player === 2) {
+                    print(clr("Computer is thinking...\n", 'yellow'))
+                    setTimeout(makeComputerMove, 1000)
+                } else {
+                    prompt()
+                }
             }
         }
     }
