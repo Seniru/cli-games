@@ -15,7 +15,6 @@ let totalMoves = 0;
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 
-// buttons
 process.stdin.on('keypress', (str, key) => {
     if (!gameStart) {
         if (key.name === '1') {
@@ -28,10 +27,13 @@ process.stdin.on('keypress', (str, key) => {
         return;
     }
 
-    if (key.name === 'z' && key.ctrl) {
+    if (key.name === 'q' || (key.name === 'z' && key.ctrl)) {
+        console.log("Thank you for playing!");
         console.log(esc.cursorShow);
         process.exit(0);
-    } else if (hero.hasWon()) {
+    }
+
+    if (hero.hasWon()) {
         if (!useRandom && round + 1 < maps.length) {
             round++;
             map = maps[round];
@@ -42,57 +44,32 @@ process.stdin.on('keypress', (str, key) => {
             process.exit(0);
         } else {
             console.log(clr("🎉 Congratulations! You've completed all the maps", "green"));
+            console.log(clr("Your number of moves is " + totalMoves, "blue"));
             console.log(esc.cursorShow);
             process.exit(0);
         }
-    } else {
-        //console.log(`[DEBUG] Key pressed: name=${key.name}, sequence=${JSON.stringify(key.sequence)}`);
+        draw();
+        return;
+    }
 
-        switch (key.name) {
-            case "up": hero.moveUp(); break;
-            case "down": hero.moveDown(); break;
-            case "left": hero.moveLeft(); break;
-            case "right": hero.moveRight(); break;
-            moveCount = 0;
-        } else {
-            console.log(clr("Congratulations! You've completed all the maps", "green"));
-            console.log(clr("Your number of moves is " + totalMoves,"blue"));
-            process.exit(0);
-        }
-    } else if (key.name === 'q') {
-        console.log("Thank you for playing!");
-	console.log(esc.cursorShow);
-        process.exit(0);
-    }  else {
-        if (gameStart) {
-            switch (key.name) {
-                case "up":
-                    hero.moveUp();
-                    moveCount++;
-                    totalMoves++;
-                    break;
-                case "down":
-                    hero.moveDown();
-                    moveCount++;
-                    totalMoves++;
-                    break;
-                case "left":
-                    hero.moveLeft();
-                    moveCount++;
-                    totalMoves++;
-                    break;
-                case "right":
-                    hero.moveRight();
-                    moveCount++;
-                    totalMoves++;
-                    break;
-            }
-        }
-    } 
+    switch (key.name) {
+        case "up":
+            hero.moveUp(); break;
+        case "down":
+            hero.moveDown(); break;
+        case "left":
+            hero.moveLeft(); break;
+        case "right":
+            hero.moveRight(); break;
+        default:
+            return;
+    }
+
+    moveCount++;
+    totalMoves++;
     draw();
 });
 
-// game init
 function startGame() {
     if (useRandom) {
         map = generateRandomMaze(15, 15);
@@ -109,14 +86,12 @@ function draw() {
     let res = "    " + (symbols.wall + " ").repeat(map[0].length) + "\n";
     for (let row of map) {
         res += "  " + symbols.wall + " ";
-        for (let col of row) {
-            res += col + " ";
-        }
-        res += symbols.wall + '\n';
+        for (let col of row) res += col + " ";
+        res += symbols.wall + "\n";
     }
     res += "    " + (symbols.wall + " ").repeat(map[0].length) + "\n";
     res = res.replace("♟", clr("♟", "yellow")).replace(/▣/g, clr("▣", "green"));
-    
+
     res += `\n${clr("Moves:", "blue")} ${moveCount}\n`;
     res += `${clr("Total Moves:", "blue")} ${totalMoves}\n`;
 
@@ -155,7 +130,7 @@ function welcome() {
 
 function clr(text, color) {
     const code = { red: 91, green: 92, blue: 34, cian: 96, yellow: 93 }[color];
-    if (code) return `\x1b[${code}m${text}\x1b[0m`;
+    return code ? `\x1b[${code}m${text}\x1b[0m` : text;
 }
 
 function print(str, hide = true) {
